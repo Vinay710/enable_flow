@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* EnableFlow Design System - Blue to Teal Corporate Theme */
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    --primary: 210 80% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 70% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 15% 50%;
+
+    --accent: 210 90% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 210 80% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom EnableFlow tokens */
+    --gradient-primary: linear-gradient(135deg, hsl(210, 80%, 50%) 0%, hsl(210, 90%, 60%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(210, 40%, 98%) 0%, hsl(210, 30%, 95%) 100%);
+    --gradient-card-hover: linear-gradient(135deg, hsl(210, 80%, 50%, 0.05) 0%, hsl(210, 90%, 60%, 0.05) 100%);
+    
+    --shadow-sm: 0 1px 2px hsl(215 25% 15% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(215 25% 15% / 0.07), 0 2px 4px -2px hsl(215 25% 15% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsl(215 25% 15% / 0.08), 0 4px 6px -4px hsl(215 25% 15% / 0.05);
+    --shadow-xl: 0 20px 25px -5px hsl(215 25% 15% / 0.1), 0 8px 10px -6px hsl(215 25% 15% / 0.05);
+    --shadow-glow: 0 0 40px hsl(210 80% 50% / 0.15);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 210 80% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 90% 60%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 210 20% 90%;
+    --sidebar-ring: 210 80% 50%;
+
+    /* Category colors */
+    --finance: 210 80% 50%;
+    --hr: 280 65% 55%;
+    --productivity: 210 90% 60%;
+    --communication: 340 75% 55%;
+    --project: 45 90% 50%;
+    --dev: 260 60% 55%;
+    --utilities: 30 80% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--gradient-primary);
+  }
+
+  .gradient-bg {
+    background-image: var(--gradient-primary);
+  }
+
+  .gradient-hero {
+    background-image: var(--gradient-hero);
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .card-hover:hover {
+    @apply -translate-y-1;
+    box-shadow: var(--shadow-xl);
+  }
+
+  .tool-card {
+    @apply bg-card rounded-xl p-6 border border-border transition-all duration-300;
+    box-shadow: var(--shadow-md);
+  }
+
+  .tool-card:hover {
+    @apply -translate-y-1 border-primary/20;
+    box-shadow: var(--shadow-lg);
+    background-image: var(--gradient-card-hover);
+  }
+
+  .category-badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .search-input {
+    @apply w-full px-5 py-4 rounded-xl border-2 border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply px-6 py-3 rounded-xl font-semibold text-primary-foreground transition-all duration-200;
+    background-image: var(--gradient-primary);
+  }
+
+  .btn-primary:hover {
+    @apply opacity-90 scale-[1.02];
+    box-shadow: var(--shadow-glow);
+  }
+
+  .section-title {
+    @apply text-3xl md:text-4xl font-bold text-foreground;
+  }
+
+  .section-subtitle {
+    @apply text-lg text-muted-foreground max-w-2xl;
+  }
+}
