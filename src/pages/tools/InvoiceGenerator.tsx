@@ -1,12 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Download, Percent, IndianRupee, CalendarDays, AlertCircle } from "lucide-react";
+import { ArrowLeft, Download, Percent, IndianRupee, CalendarDays, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { InvoiceForm } from "@/components/invoice/InvoiceForm";
 import { InvoicePreview } from "@/components/invoice/InvoicePreview";
@@ -17,6 +12,9 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAppContext } from "@/hooks/useAppContext";
 
+/**
+ * Default invoice data for the India region (GST-compliant).
+ */
 const INDIA_DEFAULT: InvoiceData = {
   seller: {
     name: "Your Company Name",
@@ -74,6 +72,9 @@ const INDIA_DEFAULT: InvoiceData = {
   ],
 };
 
+/**
+ * Default invoice data for International regions.
+ */
 const INTERNATIONAL_DEFAULT: InvoiceData = {
   seller: {
     name: "Your Company Name",
@@ -131,6 +132,13 @@ const INTERNATIONAL_DEFAULT: InvoiceData = {
   ],
 };
 
+/**
+ * InvoiceGenerator component is the main tool for creating and exporting professional invoices.
+ * It features a split layout with a real-time form and a live preview.
+ * Data is automatically saved to the browser's localStorage for persistence.
+ * 
+ * @component
+ */
 const InvoiceGenerator = () => {
   const { setMetaDescription, setMetaKeywords, setCanonicalUrl } = useAppContext();
   const previewRef = useRef<HTMLDivElement>(null);
@@ -138,7 +146,7 @@ const InvoiceGenerator = () => {
   const isInitializingRef = useRef(false);
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(INDIA_DEFAULT);
   const [showRegionAlert, setShowRegionAlert] = useState(false);
-  const [formMaxWidth, setFormMaxWidth] = useState('calc(50vw - 40px)');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Initialize from localStorage on mount
   useEffect(() => {
@@ -164,37 +172,26 @@ const InvoiceGenerator = () => {
     }
   }, []);
 
-  // Handle form container responsive max-width
-  useEffect(() => {
-    const handleResize = () => {
-      setFormMaxWidth(window.innerWidth < 1024 ? 'calc(100vw - 32px)' : 'calc(50vw - 40px)');
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   // Save to localStorage whenever data changes
   useEffect(() => {
     if (isInitializingRef.current) return;
     saveInvoiceData(invoiceData, invoiceData.details.region);
   }, [invoiceData]);
 
-  // SEO setup
+  // SEO and Page Metadata setup
   useEffect(() => {
     const isIndia = invoiceData.details.region === "IN";
     const title = isIndia 
-      ? "Invoice Generator | EnableFlow" 
-      : "International Invoice Generator | EnableFlow";
+      ? "Free GST Invoice Generator | EnableFlow" 
+      : "International Invoice Generator | Multi-Currency | EnableFlow";
     const description = isIndia
-      ? "Create professional GST-compliant invoices with HSN/SAC, place of supply, auto tax split, and export to PDF. Fast, free invoice generator for India."
-      : "Create professional international invoices with multi-currency support, VAT/Tax handling, and PDF export. Fast invoice generator worldwide.";
+      ? "Create professional GST-compliant invoices with HSN/SAC, auto tax split, and export to PDF. Fast, free, and secure invoice generator for Indian businesses."
+      : "Create professional international invoices with multi-currency support, VAT/Tax handling, and high-quality PDF export. Fast global invoice generator.";
     
     setMetaDescription(description);
     const keywords = isIndia
-      ? "invoice generator,GST invoice,HSN,SAC,place of supply,CGST,SGST,IGST,PDF,India"
-      : "international invoice,multi-currency invoice,VAT invoice,global invoicing";
+      ? "invoice generator,GST invoice,HSN,SAC,place of supply,CGST,SGST,IGST,PDF,India,business tools"
+      : "international invoice,multi-currency invoice,VAT invoice,global invoicing,PDF export,freelance tools";
     setMetaKeywords(keywords);
     
     const origin = window.location.origin || "";
@@ -202,22 +199,16 @@ const InvoiceGenerator = () => {
     setCanonicalUrl(canonicalHref);
     document.title = title;
     
+    // JSON-LD Schema for SEO
     const head = document.head;
     const breadcrumbJson = {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
         { "@type": "ListItem", "position": 1, "name": "Home", "item": `${origin}/` },
-        { "@type": "ListItem", "position": 2, "name": "Invoice Generator", "item": canonicalHref }
+        { "@type": "ListItem", "position": 2, "name": "Tools", "item": `${origin}/tools` },
+        { "@type": "ListItem", "position": 3, "name": "Invoice Generator", "item": canonicalHref }
       ]
-    };
-    
-    const webPageJson = {
-      "@context": "https://schema.org",
-      "@type": "WebPage",
-      "name": title,
-      "description": description,
-      "url": canonicalHref
     };
     
     const addJsonLd = (json: Record<string, unknown>) => {
@@ -229,14 +220,16 @@ const InvoiceGenerator = () => {
     };
     
     const s1 = addJsonLd(breadcrumbJson);
-    const s2 = addJsonLd(webPageJson);
     
     return () => {
       s1.remove();
-      s2.remove();
     };
   }, [invoiceData.details.region, setMetaDescription, setMetaKeywords, setCanonicalUrl]);
 
+  /**
+   * Handles region switching between India and International.
+   * Loads saved data for the target region or uses defaults.
+   */
   const handleRegionChange = (newRegion: Region) => {
     if (newRegion === invoiceData.details.region) return;
 
@@ -249,7 +242,6 @@ const InvoiceGenerator = () => {
       alertTimeoutRef.current = null;
     }, 3000);
 
-    // Load saved data for the new region or use default
     const savedData = loadInvoiceData(newRegion);
     const defaultData = newRegion === "IN" ? INDIA_DEFAULT : INTERNATIONAL_DEFAULT;
 
@@ -285,100 +277,117 @@ const InvoiceGenerator = () => {
     }
   };
 
-  const handleDownloadPdf = () => {
+  /**
+   * Generates and downloads the invoice as a PDF using html2pdf.js.
+   * Optimizes the element for high-quality export.
+   */
+  const handleDownloadPdf = async () => {
     const element = previewRef.current;
-    if (!element) return;
+    if (!element || isDownloading) return;
 
-    const opt = {
-      margin: [0, 0, 0, 0] as [number, number, number, number],
-      filename: `Invoice_${invoiceData.details.invoiceNumber}.pdf`,
-      image: { type: "jpeg" as const, quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
-    };
+    setIsDownloading(true);
+    
+    try {
+      const opt = {
+        margin: [0, 0, 0, 0] as [number, number, number, number],
+        filename: `Invoice_${invoiceData.details.invoiceNumber}.pdf`,
+        image: { type: "jpeg" as const, quality: 1.0 },
+        html2canvas: { 
+          scale: 3, // High scale for better resolution
+          useCORS: true,
+          logging: false,
+          letterRendering: true,
+          backgroundColor: '#ffffff'
+        },
+        jsPDF: { 
+          unit: "mm" as const, 
+          format: "a4" as const, 
+          orientation: "portrait" as const,
+          compress: true
+        },
+      };
 
-    html2pdf().set(opt).from(element).save();
+      await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+    } finally {
+      setIsDownloading(false);
+    }
   };
-
-
 
   const isIndia = invoiceData.details.region === "IN";
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50/50">
       <Header />
       
-      <main className="flex-1 py-8 md:py-12">
-        <div className="container mx-auto px-4 max-w-[1400px]">
+      <main className="flex-1 py-6 md:py-10">
+        <div className="container mx-auto px-4 max-w-[1440px]">
           {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
             <div>
               <Link 
                 to="/" 
-                className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
+                className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors mb-3"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to Tools
+                Back to Dashboard
               </Link>
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground">Invoice Generator</h1>
-              <p className="text-muted-foreground mt-2 max-w-2xl">
-                Create professional invoices for {isIndia ? "India (GST-compliant)" : "International markets"} with HSN/SAC, auto tax calculation, and PDF export.
-              </p>
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+                  <FileText className="h-6 w-6 md:h-8 md:w-8" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Invoice Generator</h1>
+                  <p className="text-slate-500 text-sm mt-0.5">
+                    {isIndia ? "GST-compliant invoices for Indian businesses" : "Professional international multi-currency invoices"}
+                  </p>
+                </div>
+              </div>
             </div>
             
-            <div className="flex gap-3 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
               <Button 
                 onClick={handleDownloadPdf} 
-                className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-md"
+                disabled={isDownloading}
+                className="h-11 px-6 gap-2 bg-slate-900 text-white hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-95 disabled:opacity-70"
               >
-                <Download className="h-4 w-4" /> Download PDF
+                {isDownloading ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" /> Download PDF
+                  </>
+                )}
               </Button>
             </div>
           </div>
 
-          {/* Region Alert */}
+          {/* Region Change Notification */}
           {showRegionAlert && (
-            <Alert className="mb-6 border-green-200 bg-green-50">
-              <AlertCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Switched to {isIndia ? "India" : "International"} mode. Your previous data for this region has been restored.
+            <Alert className="mb-6 border-blue-100 bg-blue-50/50 animate-in fade-in slide-in-from-top-2 duration-300">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800 font-medium">
+                Switched to {isIndia ? "India (GST)" : "International"} mode. Settings updated successfully.
               </AlertDescription>
             </Alert>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            {/* LEFT: Form Section */}
-            <div 
-              className="lg:col-span-5 space-y-6"
-              style={{
-                resize: 'both',
-                overflow: 'auto',
-                minHeight: '600px',
-                minWidth: '300px',
-                maxWidth: formMaxWidth,
-                border: '2px solid rgb(203, 213, 225)',
-                borderRadius: '1rem',
-                padding: '0',
-                backgroundColor: 'transparent',
-                position: 'relative'
-              }}
-            >
-              <div className="bg-white rounded-2xl border shadow-sm overflow-hidden h-full flex flex-col">
-                <div className="p-6 border-b bg-slate-50/50 flex-shrink-0">
-                  <h2 className="text-xl font-semibold">Invoice Details</h2>
-                  <p className="text-sm text-muted-foreground">Configure your invoice by selecting region and filling in details</p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* LEFT: Configuration Form */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                <div className="p-8 border-b bg-slate-50/30">
+                  <h2 className="text-lg font-bold text-slate-900">Invoice Details</h2>
+                  <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Configure your document</p>
                 </div>
-                <div className="p-6 overflow-y-auto flex-1">
+                <div className="p-8 max-h-[calc(100vh-250px)] overflow-y-auto custom-scrollbar">
                   <InvoiceForm 
-                    data={{
-                      ...invoiceData,
-                      details: {
-                        ...invoiceData.details,
-                        region: invoiceData.details.region,
-                      }
-                    }} 
+                    data={invoiceData} 
                     onChange={(newData) => {
-                      // Handle region change
                       if (newData.details.region !== invoiceData.details.region) {
                         handleRegionChange(newData.details.region);
                       } else {
@@ -388,63 +397,57 @@ const InvoiceGenerator = () => {
                   />
                 </div>
               </div>
-              {/* Resize Handle Indicator */}
-              <div style={{
-                position: 'absolute',
-                bottom: '0',
-                right: '0',
-                width: '20px',
-                height: '20px',
-                cursor: 'nwse-resize',
-                pointerEvents: 'none',
-                background: 'linear-gradient(135deg, transparent 50%, rgb(100, 116, 139) 50%)',
-                borderRadius: '0 0 1rem 0'
-              }} />
             </div>
             
-            {/* RIGHT: Preview Section */}
+            {/* RIGHT: Live Preview */}
             <div className="lg:col-span-7 space-y-6 lg:sticky lg:top-24">
-              <div className="bg-slate-200 rounded-2xl border p-2 sm:p-4 md:p-10 flex justify-center items-start min-h-[400px] sm:min-h-[600px] overflow-auto shadow-inner w-full">
-                <div className="scale-[0.6] sm:scale-[0.75] md:scale-[0.9] lg:scale-[0.85] xl:scale-[1] origin-top transform-gpu shadow-2xl bg-white">
+              <div className="bg-slate-900/5 rounded-[2rem] border-2 border-dashed border-slate-200 p-4 md:p-8 flex justify-center items-start min-h-[600px] overflow-auto shadow-inner">
+                <div className="scale-[0.5] sm:scale-[0.65] md:scale-[0.8] lg:scale-[0.75] xl:scale-[0.95] origin-top transform-gpu transition-transform duration-300 ease-out">
                   <InvoicePreview data={invoiceData} ref={previewRef} />
                 </div>
               </div>
               
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg text-blue-600 shrink-0">
-                  <Download className="h-4 w-4" />
+              {/* UI/UX Hint Card */}
+              <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/10 rounded-2xl p-6 flex items-start gap-4 shadow-sm">
+                <div className="p-3 bg-white rounded-xl text-primary shadow-sm shrink-0">
+                  <AlertCircle className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-blue-900 text-sm">Pro Tip</h4>
-                  <p className="text-blue-800 text-xs leading-relaxed mt-1">
+                  <h4 className="font-bold text-slate-900">Pro Tip for better visibility</h4>
+                  <p className="text-slate-600 text-sm leading-relaxed mt-1">
                     {isIndia 
-                      ? "Verify the Place of Supply carefully. It determines whether CGST + SGST or IGST is applied."
-                      : "Select the correct Country for your buyer to ensure proper tax compliance."}
+                      ? "The 'Place of Supply' automatically determines tax distribution (CGST/SGST vs IGST). Ensure it matches the buyer's state for accuracy."
+                      : "International invoices support multiple currencies. Use the currency selector in 'Invoice Settings' to update all rates automatically."}
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Related Tools Section */}
-          <section className="py-16 mt-10">
-            <h3 className="text-2xl font-bold mb-8">Related Tools</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Business Tools Section */}
+          <section className="py-16 mt-12">
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Business Essentials</h3>
+                <p className="text-slate-500 text-sm mt-1">Other tools to help grow your business</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { title: "GST Calculator", path: "/tools/gst-calculator", description: "Calculate GST for products and services", icon: Percent },
-                { title: "Salary Calculator", path: "/tools/salary-calculator", description: "Calculate monthly take-home salary", icon: IndianRupee },
-                { title: "Working Days Calculator", path: "/tools/working-days", description: "Calculate working days between dates", icon: CalendarDays },
+                { title: "GST Calculator", path: "/tools/gst-calculator", description: "Quickly calculate GST components for any amount", icon: Percent, color: "text-blue-500" },
+                { title: "Salary Calculator", path: "/tools/salary-calculator", description: "Estimate take-home pay after tax deductions", icon: IndianRupee, color: "text-green-500" },
+                { title: "Working Days", path: "/tools/working-days", description: "Calculate duration between dates excluding holidays", icon: CalendarDays, color: "text-purple-500" },
               ].map((t) => (
-                <Link key={t.title} to={t.path} className="group tool-card hover:border-primary/20 transition-all">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-slate-50 rounded-xl group-hover:bg-primary/5 transition-colors">
-                      <t.icon className="h-6 w-6 text-slate-400 group-hover:text-primary transition-colors" />
+                <Link key={t.title} to={t.path} className="group bg-white p-6 rounded-2xl border border-slate-200 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
+                  <div className="flex items-start gap-5">
+                    <div className="p-4 bg-slate-50 rounded-xl group-hover:bg-primary/5 transition-colors">
+                      <t.icon className={`h-6 w-6 ${t.color} group-hover:text-primary transition-colors`} />
                     </div>
                     <div>
-                      <div className="font-bold text-lg group-hover:text-primary transition-colors">{t.title}</div>
-                      <p className="text-sm text-muted-foreground mt-1">{t.description}</p>
-                      <div className="text-xs font-semibold text-primary mt-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Open tool <ArrowLeft className="h-3 w-3 rotate-180" />
+                      <div className="font-bold text-slate-900 group-hover:text-primary transition-colors">{t.title}</div>
+                      <p className="text-sm text-slate-500 mt-1 leading-relaxed">{t.description}</p>
+                      <div className="text-xs font-bold text-primary mt-4 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0">
+                        Try Tool <ArrowLeft className="h-3 w-3 rotate-180" />
                       </div>
                     </div>
                   </div>
@@ -453,65 +456,57 @@ const InvoiceGenerator = () => {
             </div>
           </section>
 
-          {/* About/FAQ Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-10">
-            <section className="bg-white border rounded-2xl p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-foreground mb-6">Key Features</h2>
-              <div className="space-y-6">
+          {/* Knowledge Hub */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+            <section className="bg-white border border-slate-200 rounded-[2rem] p-10 shadow-sm">
+              <h2 className="text-2xl font-black text-slate-900 mb-8 tracking-tight">Compliance Features</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div>
-                  <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-xs tracking-widest text-primary">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    India (GST)
+                    Indian GST
                   </h3>
-                  <ul className="mt-3 space-y-2 text-muted-foreground text-sm">
-                    <li>• GST-compliant invoicing with GSTIN fields</li>
-                    <li>• HSN/SAC codes with multiple tax rates</li>
-                    <li>• Auto CGST/SGST/IGST calculation</li>
-                    <li>• Place of supply-based tax split</li>
-                    <li>• UPI QR code generation</li>
+                  <ul className="mt-4 space-y-3 text-slate-600 text-sm">
+                    <li className="flex gap-2"><span>•</span> <span>HSN/SAC code support</span></li>
+                    <li className="flex gap-2"><span>•</span> <span>Auto CGST/SGST/IGST</span></li>
+                    <li className="flex gap-2"><span>•</span> <span>UPI QR code for payments</span></li>
+                    <li className="flex gap-2"><span>•</span> <span>GSTIN verification fields</span></li>
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <h3 className="font-black text-slate-900 flex items-center gap-2 uppercase text-xs tracking-widest text-primary">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    International
+                    Global Ready
                   </h3>
-                  <ul className="mt-3 space-y-2 text-muted-foreground text-sm">
-                    <li>• Multi-currency support (USD, EUR, GBP, etc.)</li>
-                    <li>• VAT/Sales Tax/GST handling</li>
-                    <li>• International invoice types</li>
-                    <li>• Country-based billing addresses</li>
-                    <li>• Amount in words for any currency</li>
+                  <ul className="mt-4 space-y-3 text-slate-600 text-sm">
+                    <li className="flex gap-2"><span>•</span> <span>Multi-currency handling</span></li>
+                    <li className="flex gap-2"><span>•</span> <span>VAT/Sales Tax compliance</span></li>
+                    <li className="flex gap-2"><span>•</span> <span>Custom tax labels</span></li>
+                    <li className="flex gap-2"><span>•</span> <span>Global date formats</span></li>
                   </ul>
                 </div>
               </div>
             </section>
 
-            <section className="bg-white border rounded-2xl p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-foreground mb-6">FAQ</h2>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-bold text-foreground">How do I switch between regions?</h3>
-                  <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    Use the Region Selector at the top of the form. Your data for each region is automatically saved and restored when you switch.
+            <section className="bg-white border border-slate-200 rounded-[2rem] p-10 shadow-sm">
+              <h2 className="text-2xl font-black text-slate-900 mb-8 tracking-tight">Frequently Asked</h2>
+              <div className="space-y-8">
+                <div className="group">
+                  <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors">Is my data secure?</h3>
+                  <p className="text-slate-500 text-sm mt-2 leading-relaxed">
+                    Yes. We use client-side storage only. Your billing information never leaves your browser and is never stored on our servers.
                   </p>
                 </div>
-                <div>
-                  <h3 className="font-bold text-foreground">Can I customize invoice numbers?</h3>
-                  <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    Yes. The invoice number auto-increments, but you can edit it manually. Each region maintains its own numbering sequence.
+                <div className="group">
+                  <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors">How do I change the logo?</h3>
+                  <p className="text-slate-500 text-sm mt-2 leading-relaxed">
+                    Simply click on the logo upload section in the 'Seller Details' tab. You can upload any PNG or JPG file.
                   </p>
                 </div>
-                <div>
-                  <h3 className="font-bold text-foreground">Is my data stored server-side?</h3>
-                  <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    No. All data is stored locally in your browser. We never send or store your billing information on any server.
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-bold text-foreground">What invoice types are supported?</h3>
-                  <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    Tax Invoice, Proforma Invoice, Quotation, Credit Note, and Debit Note.
+                <div className="group">
+                  <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors">Can I use this for free?</h3>
+                  <p className="text-slate-500 text-sm mt-2 leading-relaxed">
+                    Absolutely. EnableFlow's Invoice Generator is completely free to use for businesses and freelancers worldwide.
                   </p>
                 </div>
               </div>
@@ -523,6 +518,20 @@ const InvoiceGenerator = () => {
       <Footer />
       
       <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #e2e8f0;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #cbd5e1;
+        }
+        
         @media print {
           body * {
             visibility: hidden;

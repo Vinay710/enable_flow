@@ -1,6 +1,13 @@
-import { Currency } from "./types";
+import { Currency, Region } from "./types";
 
-export const formatCurrency = (amount: number, currency: Currency = "INR") => {
+/**
+ * Formats a numeric amount into a localized currency string.
+ * 
+ * @param {number} amount - The numeric value to format.
+ * @param {Currency} [currency="INR"] - The currency code (e.g., "INR", "USD").
+ * @returns {string} The formatted currency string.
+ */
+export const formatCurrency = (amount: number, currency: Currency = "INR"): string => {
   const currencyMap: Record<Currency, string> = {
     INR: "en-IN",
     USD: "en-US",
@@ -11,13 +18,22 @@ export const formatCurrency = (amount: number, currency: Currency = "INR") => {
     CAD: "en-CA",
   };
 
-  return new Intl.NumberFormat(currencyMap[currency], {
+  return new Intl.NumberFormat(currencyMap[currency] || "en-US", {
     style: "currency",
     currency: currency,
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 };
 
+/**
+ * Converts a number into its word representation based on the currency.
+ * Dispatches to either Indian or International numbering systems.
+ * 
+ * @param {number} num - The number to convert.
+ * @param {Currency} [currency="INR"] - The currency context.
+ * @returns {string} The number in words.
+ */
 export const numberToWords = (num: number, currency: Currency = "INR"): string => {
   if (currency === "INR") {
     return numberToWordsINR(num);
@@ -26,6 +42,11 @@ export const numberToWords = (num: number, currency: Currency = "INR"): string =
   }
 };
 
+/**
+ * Converts a number to words using the Indian numbering system (Lakhs, Crores).
+ * 
+ * @private
+ */
 const numberToWordsINR = (num: number): string => {
   const ones = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
   const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
@@ -82,6 +103,11 @@ const numberToWordsINR = (num: number): string => {
   return result.charAt(0).toUpperCase() + result.slice(1);
 };
 
+/**
+ * Converts a number to words using the International numbering system (Millions, Billions).
+ * 
+ * @private
+ */
 const numberToWordsInternational = (num: number, currency: Currency): string => {
   const ones = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
   const tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
@@ -156,12 +182,24 @@ const numberToWordsInternational = (num: number, currency: Currency): string => 
   return result.charAt(0).toUpperCase() + result.slice(1);
 };
 
-export const calculateTax = (amount: number, rate: number) => {
+/**
+ * Calculates the tax amount for a given taxable value and rate.
+ * 
+ * @param {number} amount - The taxable amount.
+ * @param {number} rate - The tax rate in percentage.
+ * @returns {number} The calculated tax amount.
+ */
+export const calculateTax = (amount: number, rate: number): number => {
   return (amount * rate) / 100;
 };
 
-// Local Storage utilities
-export const getLastInvoiceNumber = (region: "IN" | "INTL"): number => {
+/**
+ * Retrieves the last used invoice number from localStorage for a specific region.
+ * 
+ * @param {Region} region - The region ("IN" or "INTL").
+ * @returns {number} The last invoice number used.
+ */
+export const getLastInvoiceNumber = (region: Region): number => {
   const key = `lastInvoiceNumber_${region}`;
   const stored = localStorage.getItem(key);
   if (!stored) return 0;
@@ -169,24 +207,49 @@ export const getLastInvoiceNumber = (region: "IN" | "INTL"): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-export const saveLastInvoiceNumber = (region: "IN" | "INTL", number: number) => {
+/**
+ * Saves the last used invoice number to localStorage.
+ * 
+ * @param {Region} region - The region ("IN" or "INTL").
+ * @param {number} number - The invoice number to save.
+ */
+export const saveLastInvoiceNumber = (region: Region, number: number): void => {
   const key = `lastInvoiceNumber_${region}`;
   localStorage.setItem(key, number.toString());
 };
 
-export const generateInvoiceNumber = (region: "IN" | "INTL", prefix: string = "INV"): string => {
+/**
+ * Generates a new auto-incremented invoice number for a region.
+ * 
+ * @param {Region} region - The region ("IN" or "INTL").
+ * @param {string} [prefix="INV"] - The prefix for the invoice number.
+ * @returns {string} The generated invoice number (e.g., "INV-0005").
+ */
+export const generateInvoiceNumber = (region: Region, prefix: string = "INV"): string => {
   const lastNumber = getLastInvoiceNumber(region);
   const newNumber = lastNumber + 1;
   saveLastInvoiceNumber(region, newNumber);
   return `${prefix}-${String(newNumber).padStart(4, "0")}`;
 };
 
-export const saveInvoiceData = (data: any, region: "IN" | "INTL") => {
+/**
+ * Saves the current invoice data to localStorage for persistence.
+ * 
+ * @param {any} data - The invoice data object.
+ * @param {Region} region - The region the data belongs to.
+ */
+export const saveInvoiceData = (data: any, region: Region): void => {
   const key = `invoiceData_${region}`;
   localStorage.setItem(key, JSON.stringify(data));
 };
 
-export const loadInvoiceData = (region: "IN" | "INTL"): any | null => {
+/**
+ * Loads saved invoice data from localStorage for a specific region.
+ * 
+ * @param {Region} region - The region to load data for.
+ * @returns {any | null} The parsed invoice data or null if not found/invalid.
+ */
+export const loadInvoiceData = (region: Region): any | null => {
   const key = `invoiceData_${region}`;
   const stored = localStorage.getItem(key);
   if (!stored) return null;
