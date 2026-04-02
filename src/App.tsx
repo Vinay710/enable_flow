@@ -36,6 +36,7 @@ const App = () => {
     const meta = document.querySelector('meta[name="keywords"]');
     if (meta) {
       meta.setAttribute("content", keywords);
+      
     }
   };
 

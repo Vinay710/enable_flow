@@ -208,9 +208,11 @@ const PomodoroTimer = () => {
   };
 
   const deleteTask = (id: string) => {
-    setTasks(tasks.filter((t) => t.id !== id));
-    if (currentTaskId === id)
-      setCurrentTaskId(tasks.length > 1 ? tasks[0].id : null);
+    const newTasks = tasks.filter((t) => t.id !== id);
+    setTasks(newTasks);
+    if (currentTaskId === id) {
+      setCurrentTaskId(newTasks.length > 0 ? newTasks[0].id : null);
+    }
   };
 
   const clearCompletedTasks = () => {

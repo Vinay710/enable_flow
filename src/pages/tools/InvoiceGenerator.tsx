@@ -1,88 +1,207 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Download, Printer, Percent, IndianRupee, CalendarDays } from "lucide-react";
+import { ArrowLeft, Download, Percent, IndianRupee, CalendarDays, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { InvoiceForm } from "@/components/invoice/InvoiceForm";
 import { InvoicePreview } from "@/components/invoice/InvoicePreview";
-import { InvoiceData } from "@/components/invoice/types";
+import { InvoiceData, Region } from "@/components/invoice/types";
+import { generateInvoiceNumber, saveInvoiceData, loadInvoiceData } from "@/components/invoice/utils";
 import html2pdf from "html2pdf.js";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAppContext } from "@/hooks/useAppContext";
 
+const INDIA_DEFAULT: InvoiceData = {
+  seller: {
+    name: "Your Company Name",
+    address: "123 Business Park, Main Road",
+    city: "Mumbai",
+    state: "Maharashtra",
+    pincode: "400001",
+    gstin: "27AAAAA0000A1Z5",
+    pan: "AAAAA0000A",
+    email: "billing@company.com",
+    phone: "+91 9876543210",
+    bankDetails: {
+      bankName: "HDFC Bank",
+      accountName: "Your Company Name",
+      accountNumber: "1234567890",
+      ifscCode: "HDFC0001234",
+      branch: "Mumbai Main Branch",
+      upiId: "company@upi",
+    },
+  },
+  buyer: {
+    name: "Client Name",
+    companyName: "Client Company Ltd",
+    address: "456 Client Street",
+    city: "Pune",
+    state: "Maharashtra",
+    pincode: "411001",
+    gstin: "27BBBBB0000B1Z5",
+    placeOfSupply: "Maharashtra",
+  },
+  details: {
+    invoiceNumber: "INV-0001",
+    invoiceType: "Tax Invoice",
+    invoiceDate: new Date(),
+    dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+    region: "IN",
+    currency: "INR",
+    termsAndConditions:
+      "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged if payment is not made within the due date.\n3. Subject to local jurisdiction.",
+    notes: "Thank you for your business!",
+    reverseCharge: false,
+    roundOff: true,
+  },
+  items: [
+    {
+      id: "1",
+      description: "Web Development Services",
+      hsn: "998314",
+      quantity: 1,
+      unit: "",
+      rate: 50000,
+      discount: 0,
+      gstRate: 18,
+    },
+  ],
+};
+
+const INTERNATIONAL_DEFAULT: InvoiceData = {
+  seller: {
+    name: "Your Company Name",
+    address: "123 Business Park, Main Street",
+    city: "New York",
+    country: "United States",
+    postalCode: "10001",
+    vatNumber: "VAT-XXXXXXXXXX",
+    companyRegistration: "COMP-REG-NUMBER",
+    email: "billing@company.com",
+    phone: "+1 234 567 8900",
+    bankDetails: {
+      bankName: "Chase Bank",
+      accountName: "Your Company Name",
+      accountNumber: "4111111111111111",
+      ifscCode: "CHUSUS33",
+      branch: "New York Branch",
+    },
+  },
+  buyer: {
+    name: "Client Name",
+    companyName: "International Client Ltd",
+    address: "456 Business Avenue",
+    city: "London",
+    country: "United Kingdom",
+    postalCode: "SW1A 1AA",
+    vatNumber: "GB-XXXXXXXXXX",
+    companyRegistration: "INTL-REG-NUMBER",
+  },
+  details: {
+    invoiceNumber: "INV-0001",
+    invoiceType: "Tax Invoice",
+    invoiceDate: new Date(),
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    region: "INTL",
+    currency: "USD",
+    taxType: "VAT",
+    termsAndConditions:
+      "1. Payment terms: Net 30 days from invoice date.\n2. Bank charges are borne by the buyer.\n3. All disputes subject to jurisdiction of New York.",
+    notes: "Thank you for your business!",
+    reverseCharge: false,
+    roundOff: true,
+  },
+  items: [
+    {
+      id: "1",
+      description: "Consulting Services",
+      sku: "CONS-001",
+      quantity: 10,
+      unit: "",
+      rate: 150,
+      discount: 0,
+      taxRate: 20,
+    },
+  ],
+};
+
 const InvoiceGenerator = () => {
   const { setMetaDescription, setMetaKeywords, setCanonicalUrl } = useAppContext();
   const previewRef = useRef<HTMLDivElement>(null);
+  const alertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitializingRef = useRef(false);
+  const [invoiceData, setInvoiceData] = useState<InvoiceData>(INDIA_DEFAULT);
+  const [showRegionAlert, setShowRegionAlert] = useState(false);
+  const [formMaxWidth, setFormMaxWidth] = useState('calc(50vw - 40px)');
 
-  const [invoiceData, setInvoiceData] = useState<InvoiceData>({
-    seller: {
-      name: "Your Company Name",
-      address: "123 Business Park, Main Road",
-      city: "Mumbai",
-      state: "Maharashtra",
-      pincode: "400001",
-      gstin: "27AAAAA0000A1Z5",
-      pan: "AAAAA0000A",
-      email: "billing@company.com",
-      phone: "+91 9876543210",
-      bankDetails: {
-        bankName: "HDFC Bank",
-        accountName: "Your Company Name",
-        accountNumber: "1234567890",
-        ifscCode: "HDFC0001234",
-        branch: "Mumbai Main Branch",
-        upiId: "company@upi",
-      },
-    },
-    buyer: {
-      name: "Client Name",
-      companyName: "Client Company Ltd",
-      address: "456 Client Street",
-      city: "Pune",
-      state: "Maharashtra",
-      pincode: "411001",
-      gstin: "27BBBBB0000B1Z5",
-      placeOfSupply: "Maharashtra",
-    },
-    details: {
-      invoiceNumber: "INV-001",
-      invoiceDate: new Date(),
-      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-      termsAndConditions:
-        "1. Goods once sold will not be taken back.\n2. Interest @ 18% p.a. will be charged if payment is not made within the due date.\n3. Subject to local jurisdiction.",
-      notes: "Thank you for your business!",
-      reverseCharge: false,
-      roundOff: true,
-    },
-    items: [
-      {
-        id: "1",
-        description: "Web Development Services",
-        hsn: "998314",
-        quantity: 1,
-        unit: "nos",
-        rate: 50000,
-        discount: 0,
-        gstRate: 18,
-      },
-    ],
-  });
-
+  // Initialize from localStorage on mount
   useEffect(() => {
-    const title = "Invoice Generator | EnableFlow";
-    const description = "Create professional GST-compliant invoices with HSN/SAC, place of supply, auto tax split, and export to PDF. Fast, free invoice generator for India.";
+    isInitializingRef.current = true;
+    try {
+      const savedData = loadInvoiceData("IN");
+      if (savedData) {
+        try {
+          setInvoiceData({
+            ...savedData,
+            details: {
+              ...savedData.details,
+              invoiceDate: new Date(savedData.details.invoiceDate),
+              dueDate: new Date(savedData.details.dueDate),
+            },
+          });
+        } catch (error) {
+          console.error("Failed to load saved invoice data:", error);
+        }
+      }
+    } finally {
+      isInitializingRef.current = false;
+    }
+  }, []);
+
+  // Handle form container responsive max-width
+  useEffect(() => {
+    const handleResize = () => {
+      setFormMaxWidth(window.innerWidth < 1024 ? 'calc(100vw - 32px)' : 'calc(50vw - 40px)');
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    if (isInitializingRef.current) return;
+    saveInvoiceData(invoiceData, invoiceData.details.region);
+  }, [invoiceData]);
+
+  // SEO setup
+  useEffect(() => {
+    const isIndia = invoiceData.details.region === "IN";
+    const title = isIndia 
+      ? "Invoice Generator | EnableFlow" 
+      : "International Invoice Generator | EnableFlow";
+    const description = isIndia
+      ? "Create professional GST-compliant invoices with HSN/SAC, place of supply, auto tax split, and export to PDF. Fast, free invoice generator for India."
+      : "Create professional international invoices with multi-currency support, VAT/Tax handling, and PDF export. Fast invoice generator worldwide.";
+    
     setMetaDescription(description);
-    const keywords = "invoice generator,GST invoice,HSN,SAC,place of supply,CGST,SGST,IGST,PDF,India";
+    const keywords = isIndia
+      ? "invoice generator,GST invoice,HSN,SAC,place of supply,CGST,SGST,IGST,PDF,India"
+      : "international invoice,multi-currency invoice,VAT invoice,global invoicing";
     setMetaKeywords(keywords);
+    
     const origin = window.location.origin || "";
     const canonicalHref = `${origin}/tools/invoice-generator`;
     setCanonicalUrl(canonicalHref);
     document.title = title;
+    
     const head = document.head;
     const breadcrumbJson = {
       "@context": "https://schema.org",
@@ -92,6 +211,7 @@ const InvoiceGenerator = () => {
         { "@type": "ListItem", "position": 2, "name": "Invoice Generator", "item": canonicalHref }
       ]
     };
+    
     const webPageJson = {
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -99,6 +219,7 @@ const InvoiceGenerator = () => {
       "description": description,
       "url": canonicalHref
     };
+    
     const addJsonLd = (json: Record<string, unknown>) => {
       const s = document.createElement("script");
       s.setAttribute("type", "application/ld+json");
@@ -106,59 +227,70 @@ const InvoiceGenerator = () => {
       head.appendChild(s);
       return s;
     };
+    
     const s1 = addJsonLd(breadcrumbJson);
     const s2 = addJsonLd(webPageJson);
-    const faqJson = {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "Is the invoice generator GST-compliant?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. It supports HSN/SAC, place of supply, and auto CGST/SGST/IGST split based on intra/inter-state rules."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Can I add HSN/SAC and tax rates per item?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. Set HSN/SAC and GST rate for each line item. Totals are calculated automatically."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How do I export the invoice to PDF?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Click Download PDF to generate a high-quality A4 PDF using your current invoice data."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Do you store my invoice data?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "No. Everything runs in your browser. Data is not sent to any server."
-          }
-        }
-      ]
-    };
-    const s3 = addJsonLd(faqJson);
+    
     return () => {
       s1.remove();
       s2.remove();
-      s3.remove();
     };
-  }, []);
+  }, [invoiceData.details.region, setMetaDescription, setMetaKeywords, setCanonicalUrl]);
+
+  const handleRegionChange = (newRegion: Region) => {
+    if (newRegion === invoiceData.details.region) return;
+
+    setShowRegionAlert(true);
+    if (alertTimeoutRef.current) {
+      clearTimeout(alertTimeoutRef.current);
+    }
+    alertTimeoutRef.current = setTimeout(() => {
+      setShowRegionAlert(false);
+      alertTimeoutRef.current = null;
+    }, 3000);
+
+    // Load saved data for the new region or use default
+    const savedData = loadInvoiceData(newRegion);
+    const defaultData = newRegion === "IN" ? INDIA_DEFAULT : INTERNATIONAL_DEFAULT;
+
+    if (savedData) {
+      try {
+        setInvoiceData({
+          ...savedData,
+          details: {
+            ...savedData.details,
+            invoiceNumber: generateInvoiceNumber(newRegion),
+            invoiceDate: new Date(savedData.details.invoiceDate),
+            dueDate: new Date(savedData.details.dueDate),
+          },
+        });
+      } catch (error) {
+        console.error("Failed to load region data:", error);
+        setInvoiceData({
+          ...defaultData,
+          details: {
+            ...defaultData.details,
+            invoiceNumber: generateInvoiceNumber(newRegion),
+          },
+        });
+      }
+    } else {
+      setInvoiceData({
+        ...defaultData,
+        details: {
+          ...defaultData.details,
+          invoiceNumber: generateInvoiceNumber(newRegion),
+        },
+      });
+    }
+  };
+
   const handleDownloadPdf = () => {
     const element = previewRef.current;
     if (!element) return;
 
     const opt = {
-      margin: [0, 0, 0, 0] as [number, number, number, number], // No margin to keep full bleed background if any, but we have padding in component
+      margin: [0, 0, 0, 0] as [number, number, number, number],
       filename: `Invoice_${invoiceData.details.invoiceNumber}.pdf`,
       image: { type: "jpeg" as const, quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
@@ -168,9 +300,9 @@ const InvoiceGenerator = () => {
     html2pdf().set(opt).from(element).save();
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+
+
+  const isIndia = invoiceData.details.region === "IN";
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -190,18 +322,11 @@ const InvoiceGenerator = () => {
               </Link>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground">Invoice Generator</h1>
               <p className="text-muted-foreground mt-2 max-w-2xl">
-                Create professional GST-compliant invoices with HSN/SAC, place of supply, auto tax split, and export to high-quality PDF.
+                Create professional invoices for {isIndia ? "India (GST-compliant)" : "International markets"} with HSN/SAC, auto tax calculation, and PDF export.
               </p>
             </div>
             
             <div className="flex gap-3 shrink-0">
-              <Button 
-                onClick={handlePrint} 
-                variant="outline"
-                className="gap-2 bg-white"
-              >
-                <Printer className="h-4 w-4" /> Print
-              </Button>
               <Button 
                 onClick={handleDownloadPdf} 
                 className="gap-2 bg-primary text-white hover:bg-primary/90 shadow-md"
@@ -211,24 +336,76 @@ const InvoiceGenerator = () => {
             </div>
           </div>
 
+          {/* Region Alert */}
+          {showRegionAlert && (
+            <Alert className="mb-6 border-green-200 bg-green-50">
+              <AlertCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                Switched to {isIndia ? "India" : "International"} mode. Your previous data for this region has been restored.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
             {/* LEFT: Form Section */}
-            <div className="lg:col-span-5 space-y-6">
-              <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-                <div className="p-6 border-b bg-slate-50/50">
+            <div 
+              className="lg:col-span-5 space-y-6"
+              style={{
+                resize: 'both',
+                overflow: 'auto',
+                minHeight: '600px',
+                minWidth: '300px',
+                maxWidth: formMaxWidth,
+                border: '2px solid rgb(203, 213, 225)',
+                borderRadius: '1rem',
+                padding: '0',
+                backgroundColor: 'transparent',
+                position: 'relative'
+              }}
+            >
+              <div className="bg-white rounded-2xl border shadow-sm overflow-hidden h-full flex flex-col">
+                <div className="p-6 border-b bg-slate-50/50 flex-shrink-0">
                   <h2 className="text-xl font-semibold">Invoice Details</h2>
-                  <p className="text-sm text-muted-foreground">Fill in the fields to generate your invoice</p>
+                  <p className="text-sm text-muted-foreground">Configure your invoice by selecting region and filling in details</p>
                 </div>
-                <div className="p-6 max-h-[calc(100vh-350px)] overflow-y-auto">
-                  <InvoiceForm data={invoiceData} onChange={setInvoiceData} />
+                <div className="p-6 overflow-y-auto flex-1">
+                  <InvoiceForm 
+                    data={{
+                      ...invoiceData,
+                      details: {
+                        ...invoiceData.details,
+                        region: invoiceData.details.region,
+                      }
+                    }} 
+                    onChange={(newData) => {
+                      // Handle region change
+                      if (newData.details.region !== invoiceData.details.region) {
+                        handleRegionChange(newData.details.region);
+                      } else {
+                        setInvoiceData(newData);
+                      }
+                    }} 
+                  />
                 </div>
               </div>
+              {/* Resize Handle Indicator */}
+              <div style={{
+                position: 'absolute',
+                bottom: '0',
+                right: '0',
+                width: '20px',
+                height: '20px',
+                cursor: 'nwse-resize',
+                pointerEvents: 'none',
+                background: 'linear-gradient(135deg, transparent 50%, rgb(100, 116, 139) 50%)',
+                borderRadius: '0 0 1rem 0'
+              }} />
             </div>
             
             {/* RIGHT: Preview Section */}
             <div className="lg:col-span-7 space-y-6 lg:sticky lg:top-24">
-              <div className="bg-slate-200 rounded-2xl border p-4 md:p-10 flex justify-center items-start min-h-[600px] overflow-auto shadow-inner">
-                <div className="scale-[0.55] sm:scale-[0.7] md:scale-[0.85] lg:scale-[0.8] xl:scale-[0.95] origin-top transform-gpu shadow-2xl bg-white">
+              <div className="bg-slate-200 rounded-2xl border p-2 sm:p-4 md:p-10 flex justify-center items-start min-h-[400px] sm:min-h-[600px] overflow-auto shadow-inner w-full">
+                <div className="scale-[0.6] sm:scale-[0.75] md:scale-[0.9] lg:scale-[0.85] xl:scale-[1] origin-top transform-gpu shadow-2xl bg-white">
                   <InvoicePreview data={invoiceData} ref={previewRef} />
                 </div>
               </div>
@@ -240,7 +417,9 @@ const InvoiceGenerator = () => {
                 <div>
                   <h4 className="font-semibold text-blue-900 text-sm">Pro Tip</h4>
                   <p className="text-blue-800 text-xs leading-relaxed mt-1">
-                    Make sure to double check the <strong>Place of Supply</strong>. It determines whether CGST + SGST or IGST is applied to your invoice.
+                    {isIndia 
+                      ? "Verify the Place of Supply carefully. It determines whether CGST + SGST or IGST is applied."
+                      : "Select the correct Country for your buyer to ensure proper tax compliance."}
                   </p>
                 </div>
               </div>
@@ -277,63 +456,62 @@ const InvoiceGenerator = () => {
           {/* About/FAQ Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-10">
             <section className="bg-white border rounded-2xl p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-foreground mb-6">About this tool</h2>
-              <p className="text-muted-foreground leading-relaxed">
-                Create professional invoices compliant with Indian norms including GST, HSN/SAC, place of supply, and amount-in-words.
-                Live preview and PDF export make it easy to share and archive billing documents.
-              </p>
-              <div className="mt-8 space-y-6">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Key Features</h2>
+              <div className="space-y-6">
                 <div>
                   <h3 className="font-bold text-foreground flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    Key Features
+                    India (GST)
                   </h3>
                   <ul className="mt-3 space-y-2 text-muted-foreground text-sm">
-                    <li>• Seller/buyer details with GSTIN and bank info</li>
-                    <li>• Itemized list with HSN/SAC, GST rate, quantity, price</li>
-                    <li>• Auto CGST/SGST/IGST based on place of supply</li>
-                    <li>• Editable terms and notes; high-quality PDF export</li>
+                    <li>• GST-compliant invoicing with GSTIN fields</li>
+                    <li>• HSN/SAC codes with multiple tax rates</li>
+                    <li>• Auto CGST/SGST/IGST calculation</li>
+                    <li>• Place of supply-based tax split</li>
+                    <li>• UPI QR code generation</li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    Benefits
+                    International
                   </h3>
                   <ul className="mt-3 space-y-2 text-muted-foreground text-sm">
-                    <li>• Accurate tax compliance for Indian businesses</li>
-                    <li>• Faster invoice creation with a user-friendly UI</li>
-                    <li>• Professional documents for clients and records</li>
+                    <li>• Multi-currency support (USD, EUR, GBP, etc.)</li>
+                    <li>• VAT/Sales Tax/GST handling</li>
+                    <li>• International invoice types</li>
+                    <li>• Country-based billing addresses</li>
+                    <li>• Amount in words for any currency</li>
                   </ul>
                 </div>
               </div>
             </section>
 
             <section className="bg-white border rounded-2xl p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-foreground mb-6">Frequently Asked Questions</h2>
-              <div className="space-y-8">
+              <h2 className="text-2xl font-bold text-foreground mb-6">FAQ</h2>
+              <div className="space-y-6">
                 <div>
-                  <h3 className="font-bold text-foreground">Is this GST compliant?</h3>
+                  <h3 className="font-bold text-foreground">How do I switch between regions?</h3>
                   <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    Yes. The tool follows Indian GST norms including HSN/SAC, place of supply and automatic CGST/SGST/IGST calculation.
+                    Use the Region Selector at the top of the form. Your data for each region is automatically saved and restored when you switch.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">Can I set tax rate per item?</h3>
+                  <h3 className="font-bold text-foreground">Can I customize invoice numbers?</h3>
                   <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    Yes. Each line item can have its own GST rate and HSN/SAC. The totals are aggregated automatically.
+                    Yes. The invoice number auto-increments, but you can edit it manually. Each region maintains its own numbering sequence.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">How do I export to PDF?</h3>
+                  <h3 className="font-bold text-foreground">Is my data stored server-side?</h3>
                   <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    Simply use the "Download PDF" button to generate a high-quality A4 document. You can also use the Print button for browser-native printing.
+                    No. All data is stored locally in your browser. We never send or store your billing information on any server.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">Is my data stored?</h3>
+                  <h3 className="font-bold text-foreground">What invoice types are supported?</h3>
                   <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-                    No. Your invoice data stays entirely in your browser. We don't store or send your billing information to any server.
+                    Tax Invoice, Proforma Invoice, Quotation, Credit Note, and Debit Note.
                   </p>
                 </div>
               </div>

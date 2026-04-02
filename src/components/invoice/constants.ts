@@ -38,3 +38,67 @@ export const INDIAN_STATES = [
 ];
 
 export const GST_RATES = [0, 5, 12, 18, 28];
+
+// International
+export const COUNTRIES = [
+  "United States",
+  "United Kingdom",
+  "Canada",
+  "Australia",
+  "India",
+  "Germany",
+  "France",
+  "Italy",
+  "Spain",
+  "Netherlands",
+  "Belgium",
+  "Austria",
+  "Sweden",
+  "Norway",
+  "Denmark",
+  "Finland",
+  "Poland",
+  "Japan",
+  "China",
+  "Singapore",
+  "Malaysia",
+  "Thailand",
+  "Vietnam",
+  "Indonesia",
+  "Philippines",
+  "South Korea",
+  "Brazil",
+  "Mexico",
+  "Argentina",
+  "South Africa",
+  "United Arab Emirates",
+  "Saudi Arabia",
+];
+
+export const CURRENCIES = [
+  { code: "INR", name: "Indian Rupee", symbol: "₹" },
+  { code: "USD", name: "US Dollar", symbol: "$" },
+  { code: "EUR", name: "Euro", symbol: "€" },
+  { code: "GBP", name: "British Pound", symbol: "£" },
+  { code: "AED", name: "UAE Dirham", symbol: "د.إ" },
+  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+];
+
+export const TAX_TYPES = [
+  "VAT",
+  "Sales Tax",
+  "GST",
+  "No Tax",
+  "Custom",
+];
+
+export const INVOICE_TYPES = [
+  "Tax Invoice",
+  "Proforma Invoice",
+  "Quotation",
+  "Credit Note",
+  "Debit Note",
+];
+
+export const INTERNATIONAL_TAX_RATES = [0, 5, 10, 15, 20, 25];
